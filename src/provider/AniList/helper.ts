@@ -1,5 +1,7 @@
-export function errorHandling(res, silent = false): any {
-  if (typeof res.errors !== 'undefined') {
+export { aniListToMal } from '../../_provider/AniList/helper';
+
+export function errorHandling(res, silent = true): any {
+  if (typeof res !== 'undefined' && typeof res.errors !== 'undefined') {
     for (let i = 0, len = res.errors.length; i < len; i++) {
       const error = res.errors[i];
       switch (error.status) {
@@ -15,59 +17,26 @@ export function errorHandling(res, silent = false): any {
               },
             );
             return 'noLogin';
-            break;
           }
+          break;
         case 404:
           if (!silent) {
             utils.flashm(`anilist: ${error.message}`, {
               error: true,
               type: 'error',
             });
-            break;
           }
+          break;
         default:
-          if (!silent)
+          if (!silent) {
             utils.flashm(`anilist: ${error.message}`, {
               error: true,
               type: 'error',
             });
+          }
           throw error.message;
       }
     }
   }
   return true;
-}
-
-export function aniListToMal(anilistId: number, type: 'anime' | 'manga') {
-  const query = `
-  query ($id: Int, $type: MediaType) {
-    Media (id: $id, type: $type) {
-      id
-      idMal
-    }
-  }
-  `;
-  const variables = {
-    id: anilistId,
-    type: type.toUpperCase(),
-  };
-
-  return api.request
-    .xhr('POST', {
-      url: 'https://graphql.anilist.co',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      data: JSON.stringify({
-        query,
-        variables,
-      }),
-    })
-    .then(response => {
-      const res = JSON.parse(response.responseText);
-      con.log(res);
-      errorHandling(res);
-      return res.data.Media.idMal;
-    });
 }

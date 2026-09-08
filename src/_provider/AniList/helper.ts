@@ -62,75 +62,6 @@ export function getFuzzyDate(date?: startFinishDate): fuzzyDate {
   return fuzzyDate;
 }
 
-export function aniListToMal(anilistId: number, type: 'anime' | 'manga') {
-  const query = `
-  query ($id: Int, $type: MediaType) {
-    Media (id: $id, type: $type) {
-      id
-      idMal
-    }
-  }
-  `;
-
-  const variables = {
-    id: anilistId,
-    type: type.toUpperCase(),
-  };
-
-  return api.request
-    .xhr('POST', {
-      url: 'https://graphql.anilist.co',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      data: JSON.stringify({
-        query,
-        variables,
-      }),
-    })
-    .then(response => {
-      const res = parseJson(response.responseText);
-      con.log(res);
-      return res.data.Media.idMal;
-    });
-}
-
-export function malToAnilist(malId: number, type: 'anime' | 'manga') {
-  const query = `
-  query ($id: Int, $type: MediaType) {
-    Media (idMal: $id, type: $type) {
-      id
-      idMal
-    }
-  }
-  `;
-
-  const variables = {
-    id: malId,
-    type: type.toUpperCase(),
-  };
-
-  return api.request
-    .xhr('POST', {
-      url: 'https://graphql.anilist.co',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      data: JSON.stringify({
-        query,
-        variables,
-      }),
-    })
-    .then(response => {
-      if (response.status === 404) return NaN;
-      const res = parseJson(response.responseText);
-      con.log(res);
-      return res.data.Media.id;
-    });
-}
-
 export function getCacheKey(id, kitsuId) {
   if (Number.isNaN(id) || !id) {
     return `anilist:${kitsuId}`;
@@ -169,7 +100,11 @@ export async function apiCall(query, variables, requiresAuthentication = true) {
           const error = res.errors[0];
           switch (error.status) {
             case 400:
-              if (error.message === 'Invalid token' && !requiresAuthentication) {
+            case 401:
+              if (
+                (error.message === 'Invalid token' || error.status === 401) &&
+                !requiresAuthentication
+              ) {
                 api.settings.set('anilistToken', null);
                 return apiCall(query, variables, requiresAuthentication);
               }
@@ -195,6 +130,59 @@ export async function apiCall(query, variables, requiresAuthentication = true) {
         }
         throw err;
       }
+    });
+}
+
+export function aniListToMal(anilistId: number, type: 'anime' | 'manga') {
+  const query = `
+  query ($id: Int, $type: MediaType) {
+    Media (id: $id, type: $type) {
+      id
+      idMal
+    }
+  }
+  `;
+
+  const variables = {
+    id: anilistId,
+    type: type.toUpperCase(),
+  };
+
+  return apiCall(query, variables, false)
+    .then(res => {
+      con.log(res);
+      return res?.data?.Media?.idMal ?? null;
+    })
+    .catch(e => {
+      logger.error('aniListToMal failed:', e);
+      return null;
+    });
+}
+
+export function malToAnilist(malId: number, type: 'anime' | 'manga') {
+  const query = `
+  query ($id: Int, $type: MediaType) {
+    Media (idMal: $id, type: $type) {
+      id
+      idMal
+    }
+  }
+  `;
+
+  const variables = {
+    id: malId,
+    type: type.toUpperCase(),
+  };
+
+  return apiCall(query, variables, false)
+    .then(res => {
+      con.log(res);
+      return res?.data?.Media?.id ?? NaN;
+    })
+    .catch(e => {
+      if (e instanceof NotFoundError) return NaN;
+      logger.error('malToAnilist failed:', e);
+      return NaN;
     });
 }
 
