@@ -1,5 +1,5 @@
 import { createApp } from '../utils/Vue';
-import * as helper from '../provider/AniList/helper';
+import * as helper from '../_provider/AniList/helper';
 import { Single as AniListSingle } from '../_provider/AniList/single';
 import { UserList } from '../_provider/AniList/list';
 import { activeLinks, removeFromOptions } from '../utils/quicklinksBuilder';
@@ -88,15 +88,22 @@ export class AnilistClass {
         type: urlpart,
       };
       this.streamingUI();
-      helper.aniListToMal(this.page.id, this.page.type).then(malid => {
-        if (malid) {
-          this.page!.apiCacheKey = malid;
-        } else {
+      helper
+        .aniListToMal(this.page.id, this.page.type)
+        .then(malid => {
+          if (malid) {
+            this.page!.apiCacheKey = malid;
+          } else {
+            this.page!.apiCacheKey = `anilist:${this.page!.id}`;
+          }
+          con.log('page', this.page);
+          this.malToKiss();
+        })
+        .catch(e => {
+          con.error('aniListToMal failed', e);
           this.page!.apiCacheKey = `anilist:${this.page!.id}`;
-        }
-        con.log('page', this.page);
-        this.malToKiss();
-      });
+          this.malToKiss();
+        });
     }
 
     const urlpart4 = utils.urlPart(this.url, 5);
@@ -113,10 +120,13 @@ export class AnilistClass {
     const urlpart = utils.urlPart(this.url, 3);
     if (urlpart === 'anime' || urlpart === 'manga') {
       const aniListId = utils.urlPart(this.url, 4);
-      return helper.aniListToMal(Number(aniListId), urlpart).then(malId => {
-        if (!malId) return '';
-        return buildProviderUrl('MAL', urlpart, malId);
-      });
+      return helper
+        .aniListToMal(Number(aniListId), urlpart)
+        .then(malId => {
+          if (!malId) return '';
+          return buildProviderUrl('MAL', urlpart, malId);
+        })
+        .catch(() => '');
     }
     return '';
   }
